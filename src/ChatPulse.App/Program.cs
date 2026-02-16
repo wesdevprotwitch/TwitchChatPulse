@@ -1,5 +1,10 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+﻿using ChatPulse.IntegrationLogic;
+using ChatPulse.IntegrationLogic.Communication;
+using ChatPulse.IntegrationLogic.Communication.WebSockets;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using ChatPulse.BusinessLogic;
 
 namespace ChatPulse.App
 {
@@ -10,10 +15,20 @@ namespace ChatPulse.App
             return Host.CreateDefaultBuilder(args)
                 .ConfigureServices(services =>
                 {
-                    services.AddHostedService<ChatPulseAppHost>();
+                    services.AddLogging(config =>
+                    {
+                        config.AddConsole();
+                    });
+
+                    services.AddOptions<ObsWebSocketClientConfig>()
+                            .BindConfiguration("ObsWebSocketClient");
+
+                    services.AddSingleton<ObsWebSocketClient>()
+                            .AddSingleton<ObsHandler>()
+                            .AddSingleton<ObsStreamManager>()
+                            .AddHostedService<ChatPulseAppHost>();
                 });
         }
-
 
 
         private static async Task Main(string[] args)
