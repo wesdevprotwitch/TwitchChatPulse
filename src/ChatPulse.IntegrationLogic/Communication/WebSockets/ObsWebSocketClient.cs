@@ -63,7 +63,7 @@ namespace ChatPulse.IntegrationLogic.Communication.WebSockets
 
         public async Task SendAsync<TMessage>(TMessage message, CancellationToken token = default)
         {
-            var json = JsonSerializer.Serialize(message);
+            var json = JsonSerializer.Serialize(message, _jsonOptions);
             var bytes = System.Text.Encoding.UTF8.GetBytes(json);
             await _ws.SendAsync(bytes, WebSocketMessageType.Text, true, token);
         }
@@ -92,14 +92,14 @@ namespace ChatPulse.IntegrationLogic.Communication.WebSockets
         public async Task<ObsMessage<T>> ReceiveMessageAsync<T>(CancellationToken token = default)
         {
             var buffer = new byte[4096];
+            bool isError = false;
             using var ms = new MemoryStream();
 
             while (true)
             {
                 var result = await _ws.ReceiveAsync(buffer, token);
 
-                if (result.MessageType == WebSocketMessageType.Close)
-                    throw new WebSocketException("WebSocket closed by the server.");
+                isError = (result.MessageType == WebSocketMessageType.Close);
 
                 ms.Write(buffer, 0, result.Count);
 
@@ -108,10 +108,13 @@ namespace ChatPulse.IntegrationLogic.Communication.WebSockets
             }
 
             var json = Encoding.UTF8.GetString(ms.ToArray());
-
-            return JsonSerializer.Deserialize<ObsMessage<T>>(json, _jsonOptions) ?? throw new JsonException($"Failed to deserialize JSON message to type {typeof(T).Name}. JSON: {json}");
+            return isError ? ParseObsMessage<T>(json) /* I want to add logic to parse an error message */ : ParseObsMessage<T>(json);
         }
 
+        private ObsMessage<T> ParseObsMessage<T>(string json)
+        {
+            return JsonSerializer.Deserialize<ObsMessage<T>>(json, _jsonOptions) ?? throw new JsonException($"Failed to deserialize JSON message to type {typeof(T).Name}. JSON: {json}");
+        }
 
         public async Task CloseConnection(CancellationToken token = default) => await _ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", token);
 
