@@ -15,7 +15,7 @@ namespace ChatPulse.BusinessLogic
         Request = 6,               // Client → OBS
         RequestResponse = 7,       // OBS → Client
         RequestBatch = 8,          // Client → OBS
-        RequestBatchResponse = 9   // OBS → Client
+        RequestBatchResponse = 9,   // OBS → Client
     }
 
 }

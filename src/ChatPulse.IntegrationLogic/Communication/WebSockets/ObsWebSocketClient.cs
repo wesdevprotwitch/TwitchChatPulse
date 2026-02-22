@@ -5,6 +5,7 @@ using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace ChatPulse.IntegrationLogic.Communication.WebSockets
 {
@@ -20,9 +21,9 @@ namespace ChatPulse.IntegrationLogic.Communication.WebSockets
             DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
         };  
 
-        public ObsWebSocketClient(IOptions<ObsWebSocketClientConfig> config)
+        public ObsWebSocketClient(ObsWebSocketClientConfig config)
         {
-            _config = config.Value;
+            _config = config;
 
             // TODO: Add config for web socket?
             _ws = new ClientWebSocket();
@@ -61,6 +62,11 @@ namespace ChatPulse.IntegrationLogic.Communication.WebSockets
             await _ws.SendAsync(bytes, WebSocketMessageType.Text, true, token);
         }
 
+        public async Task<string> SendRequestAsync(string requestType, object data = null)
+        {
+            var tcs = new TaskCompletionSource<string>();
+        }
+
         public async Task SendAsync<TMessage>(TMessage message, CancellationToken token = default)
         {
             var json = JsonSerializer.Serialize(message, _jsonOptions);
@@ -68,28 +74,18 @@ namespace ChatPulse.IntegrationLogic.Communication.WebSockets
             await _ws.SendAsync(bytes, WebSocketMessageType.Text, true, token);
         }
 
-        public async Task<string> ReceiveMessageAsync(CancellationToken token = default)
+        public async Task<ObsMessage<EventMessage>> ReceiveEventAsync(string eventName)
         {
-            var buffer = new byte[4096];
-            using var ms = new MemoryStream();
-
+            // Indefinent loop is not our friend here but why not...
             while (true)
             {
-                var result = await _ws.ReceiveAsync(buffer, token);
-
-                if (result.MessageType == WebSocketMessageType.Close)
-                    throw new WebSocketException("WebSocket closed by the server.");
-
-                ms.Write(buffer, 0, result.Count);
-
-                if (result.EndOfMessage)
-                    break;
+                var message = await ReceiveMessageAsync<EventMessage>();
+                if (message.OperationCode == ObsOpCode.Event && message.Data.EventType == eventName)
+                    return message;
             }
-
-            return Encoding.UTF8.GetString(ms.ToArray());
         }
 
-        public async Task<ObsMessage<T>> ReceiveMessageAsync<T>(CancellationToken token = default)
+        public async Task<string> ReceiveMessageAsync(CancellationToken token = default)
         {
             var buffer = new byte[4096];
             bool isError = false;
@@ -107,8 +103,14 @@ namespace ChatPulse.IntegrationLogic.Communication.WebSockets
                     break;
             }
 
-            var json = Encoding.UTF8.GetString(ms.ToArray());
-            return isError ? ParseObsMessage<T>(json) /* I want to add logic to parse an error message */ : ParseObsMessage<T>(json);
+            return Encoding.UTF8.GetString(ms.ToArray());
+        }
+
+        public async Task<ObsMessage<T>> ReceiveMessageAsync<T>(CancellationToken token = default)
+        {
+            var json = await ReceiveMessageAsync(token);
+            // Break point here to see the Raw JSON...
+            return ParseObsMessage<T>(json);
         }
 
         private ObsMessage<T> ParseObsMessage<T>(string json)
