@@ -7,29 +7,17 @@ namespace ChatPulse.IntegrationLogic
     public class StreamManager
     {
         private readonly ILogger<StreamManager> _logger;
+        private readonly ObsWebSocketClient _client;
 
-        ObsOrchestrator _orchestrator;
-
-        public StreamManager(ILogger<StreamManager> logger, ObsOrchestrator orchestrator)
+        public StreamManager(ILogger<StreamManager> logger, ObsWebSocketClient client)
         {
+            _client = client;
             _logger = logger;
-            _orchestrator = orchestrator;
         }
 
         public async Task<bool> IsStreaming(CancellationToken cancellationToken = default)
         {
-            var _client = _orchestrator.Client;
-
-            await _orchestrator.Ready; // Ensure OBS connection is ready
-
-            // Use an ENUM???
-            string eventName = "GetStreamStatus";
-
-            await _client.SendAsync(eventName, cancellationToken);
-
-            // TODO: Call event reader...
-            var response = await _client.ReceiveEventAsync(eventName);
-            return response != null;
+            await _client.SendRequestAsync("GetStreamingStatus", cancellationToken);
         }
 
         public async Task<IReadOnlyList<string>> GetSceneList()

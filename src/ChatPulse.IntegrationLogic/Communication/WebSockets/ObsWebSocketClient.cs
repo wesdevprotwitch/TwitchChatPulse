@@ -1,11 +1,9 @@
 ﻿using ChatPulse.BusinessLogic;
 using ChatPulse.BusinessLogic.ObsMessages;
-using Microsoft.Extensions.Options;
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace ChatPulse.IntegrationLogic.Communication.WebSockets
 {
@@ -19,7 +17,7 @@ namespace ChatPulse.IntegrationLogic.Communication.WebSockets
             PropertyNameCaseInsensitive = true,
             WriteIndented = false,
             DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-        };  
+        };
 
         public ObsWebSocketClient(ObsWebSocketClientConfig config)
         {
@@ -62,12 +60,21 @@ namespace ChatPulse.IntegrationLogic.Communication.WebSockets
             await _ws.SendAsync(bytes, WebSocketMessageType.Text, true, token);
         }
 
-        public async Task<string> SendRequestAsync(string requestType, object data = null)
+        public async Task SendAsync<TMessage>(TMessage message, CancellationToken token = default)
         {
-            var tcs = new TaskCompletionSource<string>();
+            var json = JsonSerializer.Serialize(message, _jsonOptions);
+            var bytes = System.Text.Encoding.UTF8.GetBytes(json);
+            await _ws.SendAsync(bytes, WebSocketMessageType.Text, true, token);
         }
 
-        public async Task SendAsync<TMessage>(TMessage message, CancellationToken token = default)
+
+        public async Task SendRequestAsync(string message, CancellationToken token = default)
+        {
+            var bytes = System.Text.Encoding.UTF8.GetBytes(message);
+            await _ws.SendAsync(bytes, WebSocketMessageType.Text, true, token);
+        }
+
+        public async Task SendRequestAsync<TMessage>(TMessage message, CancellationToken token = default)
         {
             var json = JsonSerializer.Serialize(message, _jsonOptions);
             var bytes = System.Text.Encoding.UTF8.GetBytes(json);
